@@ -1,0 +1,27 @@
+{
+  "name": "tea-data",
+  "version": "0.0.1",
+  "description": "Data used for Tea package.",
+  "private": true,
+  "dependencies": {
+    "hanzi-writer-data": "^2.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^17.0.27",
+    "typescript": "^4.2.4"
+  },
+  "scripts": {
+    "start": "tsc && node generate.js"
+  },
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/steventango/tea-data.git"
+  },
+  "author": "Steven Tang and OSC",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/steventango/tea-data/issues"
+  },
+  "homepage": "https://github.com/steventango/tea-data#readme"
+}
