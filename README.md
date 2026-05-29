@@ -8,7 +8,7 @@
 - `cccedict-canto-readings-150923.txt` - Cantonese readings table
 - `cccanto-webdist.txt` - Additional Cantonese web dictionary entries
 - `wordlist.txt` - HSK wordlist and level annotations
-- `dict.json` / `partitions.json` - generated artifact files (JSON dictionary partitions)
+- `partitions.json` - generated artifact file (JSON dictionary partitions)
 - `generate.ts` / `generate.js` - dictionary loading and partition generation
 - `scripts/update-cedict-partitions.ts` - script to refresh CC-CEDICT source
 - `pinyin.ts` - helper utilities for pinyin tone normalization
@@ -56,7 +56,3 @@ Each generated entry includes:
 - `j`: Cantonese/Jyutping readings
 - `d`: definitions/annotations
 - `h` (optional): HSK level bucket
-
-## License
-
-This repository is MIT licensed. Source dictionaries and data files may have their own upstream licensing and usage terms.
