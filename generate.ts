@@ -11,6 +11,15 @@ interface DICT_entry {
   d: Array<string>;
 }
 
+interface HSK_wordlist_entry {
+  word: string;
+  h: number;
+}
+
+interface HSK_wordlist {
+  words: Array<HSK_wordlist_entry>;
+}
+
 function normalizeHskWord(word: string) {
   return word
     .replace(/（[^）]*）/g, '')
@@ -19,7 +28,54 @@ function normalizeHskWord(word: string) {
     .replace(/）/g, '')
     .replace(/…/g, '')
     .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, '')
+    .replace(/\d+$/g, '')
     .trim();
+}
+
+function parseHskJson(text: string) {
+  const parsed: HSK_wordlist = JSON.parse(text);
+  const hskMap = new Map<string, number>();
+  if (!Array.isArray(parsed?.words)) {
+    return hskMap;
+  }
+
+  for (const item of parsed.words) {
+    if (!item || typeof item.word !== 'string' || typeof item.h !== 'number') {
+      continue;
+    }
+    const word = normalizeHskWord(item.word);
+    if (word.length > 0) {
+      hskMap.set(word, item.h);
+    }
+  }
+  return hskMap;
+}
+
+function parseLegacyWordlist(wordlist: string) {
+  const lines = wordlist
+    .split('\n')
+    .filter((line) => !line.startsWith('#') && line.length > 0);
+
+  const hskMap = new Map<string, number>();
+  let level = 0;
+
+  for (const line of lines) {
+    if (/^\d/.test(line[0])) {
+      const matches = line.match(/\d+ (.*)/)?.slice(1);
+      const words = matches!
+        .flatMap((match: string) => match.split('｜'))
+        .flatMap((match: string) => match.split('、'))
+        .map((word) => normalizeHskWord(word))
+        .filter((word) => word.length > 0);
+      for (const match of words) {
+        hskMap.set(match, level);
+      }
+    } else {
+      level++;
+    }
+  }
+
+  return hskMap;
 }
 
 class DICT {
@@ -36,12 +92,12 @@ class DICT {
         cedict_ts,
         cccedict_canto_readings,
         ccccanto_webdist,
-        wordlist
+        hskWordlistJson
       ] = await Promise.all([
         fs.readFile('cedict_ts.u8', 'utf8'),
         fs.readFile('cccedict-canto-readings-150923.txt', 'utf8'),
         fs.readFile('cccanto-webdist.txt', 'utf8'),
-        fs.readFile('wordlist.txt', 'utf8')
+        fs.readFile('hsk-wordlist.json', 'utf8').catch(() => '')
       ]);
       let t1 = performance.now();
       console.log(`Loading data: ${Math.round(t1 - t0)} ms.`);
@@ -70,28 +126,11 @@ class DICT {
         .map(entry => [entry.t, entry])
       );
 
-      const hsk = wordlist
-      .split('\n')
-      .filter((line) => !line.startsWith('#') && line.length> 0)
-
-      const hskMap = new Map<string, number>();
-
-      let level = 0;
-      for (const line of hsk) {
-        if (/\d/.test(line[0])) {
-          const matches = line.match(/\d+ (.*)/)?.slice(1);
-          const words = matches!
-            .flatMap((match: string) => match.split('｜'))
-            .flatMap((match: string) => match.split('、'))
-            .map((word) => normalizeHskWord(word))
-            .filter((word) => word.length > 0);
-          for (const match of words) {
-            hskMap.set(match, level);
-          }
-        } else {
-          level++;
-        }
-      }
+      const hskMap = hskWordlistJson
+        ? parseHskJson(hskWordlistJson)
+        : parseLegacyWordlist(
+          await fs.readFile('wordlist.txt', 'utf8')
+        );
 
       data = data.map((entry) => {
         if (entry.j.length === 0) {
@@ -124,8 +163,8 @@ class DICT {
             }
           }
         }
-        const h = hskMap.get(entry.s);
-        if (h) {
+        const h = hskMap.get(entry.s) ?? hskMap.get(entry.t);
+        if (h !== undefined) {
           entry.h = h;
         }
         return entry;
@@ -201,7 +240,7 @@ async function generate() {
   const partitions = new Map<number, Array<DICT_entry>>();
   partitions.set(0, []);
   for (const entry of data!) {
-    if (entry.h) {
+    if (entry.h !== undefined) {
       if (!partitions.has(entry.h)) {
         partitions.set(entry.h , [entry]);
       } else {

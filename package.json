@@ -12,7 +12,9 @@
   },
   "scripts": {
     "start": "tsc && node generate.js",
-    "update:cedict": "tsc && node scripts/update-cedict-partitions.js"
+    "update:cedict": "tsc && node scripts/update-cedict-partitions.js",
+    "update:hsk-wordlist": "tsc && node scripts/extract-hsk-wordlist.js",
+    "download:hsk-pdf": "tsc && node scripts/download-hsk-pdf.js"
   },
   "type": "module",
   "repository": {
