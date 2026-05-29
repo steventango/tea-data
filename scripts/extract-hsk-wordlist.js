@@ -1,13 +1,13 @@
 import { promises as fs } from 'fs';
 import { spawn } from 'child_process';
 const BUCKET_NAMES = {
-    0: 'HSK 1',
-    1: 'HSK 2',
-    2: 'HSK 3',
-    3: 'HSK 4',
-    4: 'HSK 5',
-    5: 'HSK 6',
-    6: 'HSK 7-9',
+    1: 'HSK 1',
+    2: 'HSK 2',
+    3: 'HSK 3',
+    4: 'HSK 4',
+    5: 'HSK 5',
+    6: 'HSK 6',
+    7: 'HSK 7-9',
 };
 function parseArgs(argv) {
     const args = {
@@ -119,10 +119,10 @@ function parseHskLevelToken(levelToken) {
 }
 function canonicalHskBucket(level) {
     if (level >= 1 && level <= 6) {
-        return level - 1;
+        return level;
     }
     if (level === 7 || level === 8 || level === 9) {
-        return 6;
+        return 7;
     }
     return undefined;
 }

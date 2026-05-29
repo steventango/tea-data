@@ -43,6 +43,9 @@ function parseHskJson(text: string) {
     if (!item || typeof item.word !== 'string' || typeof item.h !== 'number') {
       continue;
     }
+    if (item.h === 0) {
+      continue;
+    }
     const word = normalizeHskWord(item.word);
     if (word.length > 0) {
       hskMap.set(word, item.h);
