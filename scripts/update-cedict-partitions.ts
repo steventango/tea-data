@@ -124,8 +124,11 @@ async function localHash(filePath: string) {
   try {
     const content = await fs.readFile(filePath);
     return { exists: true, hash: hashBuffer(content) };
-  } catch {
-    return { exists: false, hash: null };
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && (error as { code: string }).code === 'ENOENT') {
+      return { exists: false, hash: null };
+    }
+    throw error;
   }
 }
 
