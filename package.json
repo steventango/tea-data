@@ -11,7 +11,9 @@
     "typescript": "^4.2.4"
   },
   "scripts": {
-    "start": "tsc && node generate.js"
+    "start": "tsc && node generate.js",
+    "update:cedict": "tsc && node scripts/update-cedict-partitions.js",
+    "update:cedict-and-generate": "npm run update:cedict"
   },
   "type": "module",
   "repository": {

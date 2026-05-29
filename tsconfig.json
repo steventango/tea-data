@@ -7,10 +7,11 @@
     "removeComments": true,
     "sourceMap": true,
     "strict": true,
+    "lib": ["es2020"],
     "target": "es2020",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
   },
   "compileOnSave": true,
-  "include": ["*"],
+  "include": ["*", "scripts/*.ts"],
 }
