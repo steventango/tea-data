@@ -17,6 +17,7 @@ function normalizeHskWord(word: string) {
     .replace(/\([^)]*\)/g, '')
     .replace(/（[^）]*$/g, '')
     .replace(/）/g, '')
+    .replace(/…/g, '')
     .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, '')
     .trim();
 }
