@@ -5,41 +5,10 @@ import path from 'path';
 import { createGunzip } from 'zlib';
 const CEDICT_URL = 'https://www.mdbg.net/chinese/export/cedict/cedict_1_0_ts_utf-8_mdbg.txt.gz';
 const CEDICT_ENTRY_PATTERN = new RegExp(String.raw `([^ ]*?) ([^ ]*?) \[(.*?)\](?: \{(.*?)\})*(?: \/(.*)\/)*`);
+const FORCE_UPDATE = false;
+const WORKDIR = process.cwd();
 function hashBuffer(data) {
     return createHash('sha256').update(data).digest('hex');
-}
-function parseArgs(argv) {
-    const options = {
-        force: false,
-        dryRun: false,
-        workdir: process.cwd(),
-    };
-    for (let i = 0; i < argv.length; i++) {
-        const arg = argv[i];
-        if (arg === '--force') {
-            options.force = true;
-            continue;
-        }
-        if (arg === '--dry-run') {
-            options.dryRun = true;
-            continue;
-        }
-        if (arg === '--workdir') {
-            const value = argv[i + 1];
-            if (!value) {
-                throw new Error('--workdir requires a value');
-            }
-            options.workdir = path.resolve(process.cwd(), value);
-            i += 1;
-            continue;
-        }
-        if (arg.startsWith('--workdir=')) {
-            options.workdir = path.resolve(process.cwd(), arg.slice('--workdir='.length));
-            continue;
-        }
-        throw new Error(`Unknown option: ${arg}`);
-    }
-    return options;
 }
 function countEntries(text) {
     const entries = text
@@ -136,7 +105,8 @@ async function writeAtomic(targetPath, contents) {
     await fs.rename(tempPath, targetPath);
 }
 async function run() {
-    const { force, dryRun, workdir } = parseArgs(process.argv.slice(2));
+    const force = FORCE_UPDATE;
+    const workdir = WORKDIR;
     const cedictPath = path.join(workdir, 'cedict_ts.u8');
     const result = await fetchCedictArchive(CEDICT_URL);
     const upstreamBytes = await decompressGzip(result.gzipped);
@@ -147,9 +117,6 @@ async function run() {
     const unchanged = local.exists && local.hash === upstreamHash;
     console.log(`upstream date: ${metadata.date}`);
     console.log(`upstream entries: ${metadata.entries}`);
-    if (dryRun) {
-        return;
-    }
     console.log(`downloaded bytes: ${upstreamBytes.length}`);
     console.log(`local hash match: ${unchanged ? 'yes' : 'no'}`);
     if (unchanged && !force) {

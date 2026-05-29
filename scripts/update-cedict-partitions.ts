@@ -8,12 +8,6 @@ import { IncomingHttpHeaders } from 'http';
 const CEDICT_URL = 'https://www.mdbg.net/chinese/export/cedict/cedict_1_0_ts_utf-8_mdbg.txt.gz';
 const CEDICT_ENTRY_PATTERN = new RegExp(String.raw`([^ ]*?) ([^ ]*?) \[(.*?)\](?: \{(.*?)\})*(?: \/(.*)\/)*`);
 
-interface UpdateOptions {
-  force: boolean;
-  dryRun: boolean;
-  workdir: string;
-}
-
 interface FetchResult {
   gzipped: Buffer;
   headers: IncomingHttpHeaders;
@@ -24,44 +18,11 @@ interface UpstreamMetadata {
   entries: number;
 }
 
+const FORCE_UPDATE = false;
+const WORKDIR = process.cwd();
+
 function hashBuffer(data: Buffer | string) {
   return createHash('sha256').update(data).digest('hex');
-}
-
-function parseArgs(argv: string[]): UpdateOptions {
-  const options: UpdateOptions = {
-    force: false,
-    dryRun: false,
-    workdir: process.cwd(),
-  };
-
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    if (arg === '--force') {
-      options.force = true;
-      continue;
-    }
-    if (arg === '--dry-run') {
-      options.dryRun = true;
-      continue;
-    }
-    if (arg === '--workdir') {
-      const value = argv[i + 1];
-      if (!value) {
-        throw new Error('--workdir requires a value');
-      }
-      options.workdir = path.resolve(process.cwd(), value);
-      i += 1;
-      continue;
-    }
-    if (arg.startsWith('--workdir=')) {
-      options.workdir = path.resolve(process.cwd(), arg.slice('--workdir='.length));
-      continue;
-    }
-    throw new Error(`Unknown option: ${arg}`);
-  }
-
-  return options;
 }
 
 function countEntries(text: string) {
@@ -175,7 +136,8 @@ async function writeAtomic(targetPath: string, contents: string) {
 }
 
 async function run() {
-  const { force, dryRun, workdir } = parseArgs(process.argv.slice(2));
+  const force = FORCE_UPDATE;
+  const workdir = WORKDIR;
   const cedictPath = path.join(workdir, 'cedict_ts.u8');
 
   const result = await fetchCedictArchive(CEDICT_URL);
@@ -189,10 +151,6 @@ async function run() {
 
   console.log(`upstream date: ${metadata.date}`);
   console.log(`upstream entries: ${metadata.entries}`);
-
-  if (dryRun) {
-    return;
-  }
 
   console.log(`downloaded bytes: ${upstreamBytes.length}`);
   console.log(`local hash match: ${unchanged ? 'yes' : 'no'}`);
