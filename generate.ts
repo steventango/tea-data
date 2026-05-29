@@ -1,4 +1,4 @@
-import { promises as fs } from 'fs';
+import { promises as fs } from "fs";
 import {performance} from 'perf_hooks';
 import unicode_pinyin from './pinyin.js';
 
@@ -19,13 +19,6 @@ interface HSK_wordlist_entry {
 interface HSK_wordlist {
   words: Array<HSK_wordlist_entry>;
 }
-
-interface GenerateOptions {
-  outPath: string;
-  topicsPath?: string;
-}
-
-type TopicWordMap = Map<string, Set<string>>;
 
 function normalizeHskWord(word: string) {
   return word
@@ -59,202 +52,6 @@ function parseHskJson(text: string) {
     }
   }
   return hskMap;
-}
-
-function isStringArray(value: unknown): value is Array<string> {
-  return Array.isArray(value) && value.every((item) => typeof item === 'string');
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function isTopicRecord(value: unknown): value is Record<string, Array<string>> {
-  if (!isObject(value)) {
-    return false;
-  }
-
-  for (const [topic, words] of Object.entries(value)) {
-    if (typeof topic !== 'string' || !isStringArray(words)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function isTopicList(value: unknown): value is Array<{topic: string; words: Array<string>}> {
-  if (!Array.isArray(value)) {
-    return false;
-  }
-
-  return value.every((entry) => {
-    return isObject(entry) && typeof entry.topic === 'string' && isStringArray(entry.words);
-  });
-}
-
-function parseTopicsJson(text: string): TopicWordMap {
-  const parsed: unknown = JSON.parse(text);
-  const source: Record<string, Array<string>> = {};
-
-  if (isTopicRecord(parsed)) {
-    Object.assign(source, parsed);
-  } else if (isObject(parsed) && isTopicRecord(parsed.topics)) {
-    Object.assign(source, parsed.topics);
-  } else if (isTopicList(parsed)) {
-    for (const item of parsed) {
-      source[item.topic] = item.words.slice();
-    }
-  } else {
-    throw new Error('Invalid topics file. Expected object map, top-level `{ topics: { ... } }`, or array of `{ topic, words }`.');
-  }
-
-  const wordToTopics: TopicWordMap = new Map<string, Set<string>>();
-  for (const [topic, words] of Object.entries(source)) {
-    if (!topic.trim()) {
-      continue;
-    }
-    for (const rawWord of words) {
-      const normalizedWord = normalizeHskWord(rawWord);
-      if (!normalizedWord) {
-        continue;
-      }
-      const topics = wordToTopics.get(normalizedWord);
-      if (topics) {
-        topics.add(topic);
-      } else {
-        wordToTopics.set(normalizedWord, new Set([topic]));
-      }
-    }
-  }
-
-  return wordToTopics;
-}
-
-function getTopicsForEntry(entry: DICT_entry, wordToTopics: TopicWordMap): Array<string> {
-  const result = new Set<string>();
-  const sTopics = wordToTopics.get(entry.s);
-  const tTopics = wordToTopics.get(entry.t);
-
-  if (sTopics) {
-    for (const topic of sTopics) {
-      result.add(topic);
-    }
-  }
-
-  if (tTopics) {
-    for (const topic of tTopics) {
-      result.add(topic);
-    }
-  }
-
-  return Array.from(result);
-}
-
-function parseArgs(argv: string[]): GenerateOptions {
-  const options: GenerateOptions = {
-    outPath: 'partitions.json',
-  };
-
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-
-    if (arg === '--out') {
-      const value = argv[i + 1];
-      if (!value) {
-        throw new Error('--out requires a file path');
-      }
-      options.outPath = value;
-      i++;
-      continue;
-    }
-
-    if (arg === '--topics') {
-      const value = argv[i + 1];
-      if (!value) {
-        throw new Error('--topics requires a file path');
-      }
-      options.topicsPath = value;
-      i++;
-      continue;
-    }
-  }
-
-  return options;
-}
-
-function buildPartitionPayload(entries: Array<DICT_entry>, wordToTopics?: TopicWordMap) {
-  const partitions = new Map<number, Array<DICT_entry>>();
-  const topicPartitions = new Map<string, Array<DICT_entry>>();
-  const hskTopicPartitions = new Map<number, Map<string, Array<DICT_entry>>>();
-
-  partitions.set(0, []);
-
-  for (const entry of entries) {
-    const h = entry.h ?? 0;
-    const bucket = partitions.get(h);
-    if (!bucket) {
-      partitions.set(h, [entry]);
-    } else {
-      bucket.push(entry);
-    }
-
-    if (!wordToTopics) {
-      continue;
-    }
-
-    const topics = getTopicsForEntry(entry, wordToTopics);
-    for (const topic of topics) {
-      const topicBucket = topicPartitions.get(topic);
-      if (!topicBucket) {
-        topicPartitions.set(topic, [entry]);
-      } else {
-        topicBucket.push(entry);
-      }
-
-      let topicsByHsk = hskTopicPartitions.get(h);
-      if (!topicsByHsk) {
-        topicsByHsk = new Map<string, Array<DICT_entry>>();
-        hskTopicPartitions.set(h, topicsByHsk);
-      }
-
-      const hskTopicBucket = topicsByHsk.get(topic);
-      if (!hskTopicBucket) {
-        topicsByHsk.set(topic, [entry]);
-      } else {
-        hskTopicBucket.push(entry);
-      }
-    }
-  }
-
-  const payload: Record<string, Array<DICT_entry>> = {};
-  for (const [bucket, values] of partitions.entries()) {
-    payload[String(bucket)] = values;
-  }
-
-  const withTopics = payload as PartitionPayload;
-  if (wordToTopics && topicPartitions.size > 0) {
-    withTopics._topics = {};
-    for (const [topic, values] of topicPartitions.entries()) {
-      withTopics._topics[topic] = values;
-    }
-
-    withTopics._hskTopics = {};
-    for (const [bucket, topics] of hskTopicPartitions.entries()) {
-      const byTopic: Record<string, Array<DICT_entry>> = {};
-      for (const [topic, values] of topics.entries()) {
-        byTopic[topic] = values;
-      }
-      withTopics._hskTopics[String(bucket)] = byTopic;
-    }
-  }
-
-  return withTopics;
-}
-
-interface PartitionPayload {
-  _topics?: Record<string, Array<DICT_entry>>;
-  _hskTopics?: Record<string, Record<string, Array<DICT_entry>>>;
 }
 
 class DICT {
@@ -374,19 +171,19 @@ class DICT {
   augment_entries(entry: DICT_entry) {
     const result = [entry];
     for (const j of entry.j) {
-      const jyutping = j.split(' ');
-      const items = Array.from(entry.t).map((c, i) => ([c, jyutping[i]]));
-      for (const [c, j] of items) {
-        const new_entry = {
-          t: c,
-          s: entry.s,
-          p: entry.p,
-          j: [j],
-          d: entry.d,
-        };
-        result.push(new_entry);
-      }
+    const jyutping = j.split(' ');
+    const items = Array.from(entry.t).map((c, i) => ([c, jyutping[i]]));
+    for (const [c, j] of items) {
+      const new_entry = {
+        t: c,
+        s: entry.s,
+        p: entry.p,
+        j: [j],
+        d: entry.d,
+      };
+      result.push(new_entry);
     }
+  }
     return result;
   }
 
@@ -411,22 +208,23 @@ class DICT {
 }
 
 async function generate() {
-  const options = parseArgs(process.argv.slice(2));
   const dict = new DICT();
   const data = await dict.data;
 
-  if (!data) {
-    return;
+  const partitions = new Map<number, Array<DICT_entry>>();
+  partitions.set(0, []);
+  for (const entry of data!) {
+    if (entry.h !== undefined) {
+      if (!partitions.has(entry.h)) {
+        partitions.set(entry.h , [entry]);
+      } else {
+        partitions.get(entry.h)!.push(entry);
+      }
+    } else {
+      partitions.get(0)!.push(entry);
+    }
   }
-
-  let wordToTopics: TopicWordMap | undefined;
-  if (options.topicsPath) {
-    const topicsText = await fs.readFile(options.topicsPath, 'utf8');
-    wordToTopics = parseTopicsJson(topicsText);
-  }
-
-  const partitions = buildPartitionPayload(data, wordToTopics);
-  await fs.writeFile(options.outPath, JSON.stringify(partitions, null, 2), 'utf8');
+  await fs.writeFile('partitions.json', JSON.stringify(Object.fromEntries(partitions.entries())));
 }
 
 generate();
