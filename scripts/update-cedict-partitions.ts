@@ -6,7 +6,9 @@ import { createGunzip } from 'zlib';
 import { IncomingHttpHeaders } from 'http';
 
 const CEDICT_URL = 'https://www.mdbg.net/chinese/export/cedict/cedict_1_0_ts_utf-8_mdbg.txt.gz';
-const CEDICT_ENTRY_PATTERN = new RegExp(String.raw`([^ ]*?) ([^ ]*?) \[(.*?)\](?: \{(.*?)\})*(?: \/(.*)\/)*`);
+const CEDICT_ENTRY_PATTERN = new RegExp(
+  String.raw`^([^ ]+) ([^ ]+) \[(.*?)\](?: \{(.*?)\})*(?: \/(.*)\/) *$`,
+);
 
 interface FetchResult {
   gzipped: Buffer;
@@ -27,8 +29,9 @@ function hashBuffer(data: Buffer | string) {
 
 function countEntries(text: string) {
   const entries = text
-    .split('\n')
-    .filter((line) => line.trim().length > 0 && !line.startsWith('#'));
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.length > 0 && !line.startsWith('#'));
   const invalid = entries.filter((line) => !CEDICT_ENTRY_PATTERN.test(line));
   if (invalid.length > 0) {
     throw new Error(`Invalid entry format detected (${invalid.length} lines)`);
@@ -51,7 +54,7 @@ function readHeaderMetadata(lines: string[]) {
 }
 
 function parseUpstreamMetadata(text: string, headers: IncomingHttpHeaders): UpstreamMetadata {
-  const lines = text.split('\n');
+  const lines = text.split(/\r?\n/).map((line) => line.trimEnd());
   const metadata = readHeaderMetadata(lines);
   const version = metadata.get('version');
 
