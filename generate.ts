@@ -54,33 +54,6 @@ function parseHskJson(text: string) {
   return hskMap;
 }
 
-function parseLegacyWordlist(wordlist: string) {
-  const lines = wordlist
-    .split('\n')
-    .filter((line) => !line.startsWith('#') && line.length > 0);
-
-  const hskMap = new Map<string, number>();
-  let level = 0;
-
-  for (const line of lines) {
-    if (/^\d/.test(line[0])) {
-      const matches = line.match(/\d+ (.*)/)?.slice(1);
-      const words = matches!
-        .flatMap((match: string) => match.split('｜'))
-        .flatMap((match: string) => match.split('、'))
-        .map((word) => normalizeHskWord(word))
-        .filter((word) => word.length > 0);
-      for (const match of words) {
-        hskMap.set(match, level);
-      }
-    } else {
-      level++;
-    }
-  }
-
-  return hskMap;
-}
-
 class DICT {
   data: Promise<Array<DICT_entry> | undefined>;
 
@@ -131,9 +104,7 @@ class DICT {
 
       const hskMap = hskWordlistJson
         ? parseHskJson(hskWordlistJson)
-        : await fs.readFile('wordlist.txt', 'utf8')
-          .then(parseLegacyWordlist)
-          .catch(() => new Map<string, number>());
+        : new Map<string, number>();
 
       data = data.map((entry) => {
         if (entry.j.length === 0) {

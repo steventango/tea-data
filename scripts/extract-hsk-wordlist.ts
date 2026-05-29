@@ -34,32 +34,18 @@ interface ParsedHskText {
   parseDiagnostics: ParseDiagnostics;
 }
 
-interface ParsedLegacyWordlist {
-  words: Set<string>;
-}
-
-interface LegacyDiff {
-  onlyInNewCount: number;
-  onlyInLegacyCount: number;
-  overlapCount: number;
-  onlyInNewSamples: string[];
-  onlyInLegacySamples: string[];
-}
-
 interface QualityReport {
   generatedAt: string;
   source: {
     pdfPath?: string;
     textPath?: string;
     layout: boolean;
-    legacyWordlistPath?: string;
   };
   outPath: string;
   parseDiagnostics: ParseDiagnostics;
   bucketCounts: Record<number, number>;
   bucketNames: Record<number, string>;
   duplicatesMerged: number;
-  legacyDiff?: LegacyDiff;
 }
 
 interface CliArgs {
@@ -67,7 +53,6 @@ interface CliArgs {
   textPath?: string;
   outPath: string;
   layout: boolean;
-  legacyWordlistPath?: string;
   reportPath?: string;
   strict: boolean;
 }
@@ -122,16 +107,6 @@ function parseArgs(argv: string[]): CliArgs {
       continue;
     }
 
-    if (arg === '--legacy') {
-      const value = argv[i + 1];
-      if (!value) {
-        throw new Error('--legacy requires a file path');
-      }
-      args.legacyWordlistPath = value;
-      i++;
-      continue;
-    }
-
     if (arg === '--report') {
       const value = argv[i + 1];
       if (!value) {
@@ -174,7 +149,6 @@ function usage() {
   --text <path>   Input extracted PDF text (skip pdftotext)
   --out <path>    Output JSON file (default: hsk-wordlist.json)
   --report <path> Write quality report JSON
-  --legacy <path> Legacy wordlist for diff checks
   --layout        Use pdftotext -layout mode (fallback is -raw)
   --strict        Fail on low-quality parses
   --help          Show this message`);
@@ -296,72 +270,12 @@ function parseHskText(rawText: string): ParsedHskText {
   };
 }
 
-function parseLegacyWordlist(wordlist: string): ParsedLegacyWordlist {
-  const lines = wordlist
-    .split('\n')
-    .filter((line) => !line.startsWith('#') && line.length > 0);
-
-  const words = new Set<string>();
-
-  for (const line of lines) {
-    if (/^\d/.test(line[0])) {
-      const matches = line.match(/\d+ (.*)/)?.slice(1);
-      if (!matches) {
-        continue;
-      }
-      const rowWords = matches
-        .flatMap((match) => match.split('｜'))
-        .flatMap((match) => match.split('、'))
-        .map((word) => normalizeHskWord(word))
-        .filter((word) => word.length > 0);
-      for (const word of rowWords) {
-        words.add(word);
-      }
-      continue;
-    }
-  }
-
-  return { words };
-}
-
 function calculateBucketCounts(words: ParsedHSKWord[]): Record<number, number> {
   const counts: Record<number, number> = {};
   for (const item of words) {
     counts[item.h] = (counts[item.h] || 0) + 1;
   }
   return counts;
-}
-
-function compareWithLegacy(newWords: ParsedHskText, legacyWords?: Set<string>) {
-  if (!legacyWords) {
-    return undefined;
-  }
-
-  const newWordSet = new Set(newWords.words.map((entry) => entry.word));
-  const onlyInNew: string[] = [];
-  const onlyInLegacy: string[] = [];
-
-  for (const word of newWordSet) {
-    if (!legacyWords.has(word)) {
-      onlyInNew.push(word);
-    }
-  }
-
-  for (const word of legacyWords) {
-    if (!newWordSet.has(word)) {
-      onlyInLegacy.push(word);
-    }
-  }
-
-  const overlapCount = newWordSet.size - onlyInNew.length;
-
-  return {
-    onlyInNewCount: onlyInNew.length,
-    onlyInLegacyCount: onlyInLegacy.length,
-    overlapCount,
-    onlyInNewSamples: onlyInNew.sort().slice(0, 40),
-    onlyInLegacySamples: onlyInLegacy.sort().slice(0, 40),
-  };
 }
 
 function printQualityReport(parsed: ParsedHskText, report: QualityReport) {
@@ -382,20 +296,9 @@ function printQualityReport(parsed: ParsedHskText, report: QualityReport) {
     console.log(`- ${name} (${bucket}): ${count}`);
   }
 
-  if (report.legacyDiff) {
-    console.log(`- legacy overlap: ${report.legacyDiff.overlapCount}`);
-    console.log(`- only in new: ${report.legacyDiff.onlyInNewCount}`);
-    console.log(`- only in legacy: ${report.legacyDiff.onlyInLegacyCount}`);
-    if (report.legacyDiff.onlyInNewSamples.length > 0) {
-      console.log(`  only-in-new sample: ${report.legacyDiff.onlyInNewSamples.join(', ')}`);
-    }
-    if (report.legacyDiff.onlyInLegacySamples.length > 0) {
-      console.log(`  only-in-legacy sample: ${report.legacyDiff.onlyInLegacySamples.join(', ')}`);
-    }
-  }
 }
 
-function buildQualityReport(parsed: ParsedHskText, args: CliArgs, legacyDiff?: LegacyDiff): QualityReport {
+function buildQualityReport(parsed: ParsedHskText, args: CliArgs): QualityReport {
   const bucketCounts = calculateBucketCounts(parsed.words);
 
   return {
@@ -404,14 +307,12 @@ function buildQualityReport(parsed: ParsedHskText, args: CliArgs, legacyDiff?: L
       pdfPath: args.pdfPath,
       textPath: args.textPath,
       layout: args.layout,
-      legacyWordlistPath: args.legacyWordlistPath,
     },
     outPath: args.outPath,
     parseDiagnostics: parsed.parseDiagnostics,
     bucketCounts,
     bucketNames: BUCKET_NAMES,
     duplicatesMerged: parsed.parseDiagnostics.duplicateRows,
-    legacyDiff,
   };
 }
 
@@ -490,22 +391,8 @@ async function extractHskWords(args: CliArgs) {
     throw new Error('No HSK rows parsed from input source');
   }
 
-  let legacyDiff: LegacyDiff | undefined;
-  if (args.legacyWordlistPath) {
-    try {
-      const legacyText = await fs.readFile(args.legacyWordlistPath, 'utf8');
-      const legacy = parseLegacyWordlist(legacyText);
-      legacyDiff = compareWithLegacy(parsed, legacy.words);
-    } catch (error) {
-      if (args.strict) {
-        throw error;
-      }
-      console.warn(`warning: could not read legacy wordlist at ${args.legacyWordlistPath}`);
-    }
-  }
-
   validateParsedQuality(parsed, args.strict);
-  const report = buildQualityReport(parsed, args, legacyDiff);
+  const report = buildQualityReport(parsed, args);
 
   const payload: ExtractedHskWordlist = {
     generatedAt: new Date().toISOString(),

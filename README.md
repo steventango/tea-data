@@ -39,7 +39,7 @@ This compiles TypeScript and writes the generated partition file (`partitions.js
 - merging duplicate `(traditional, simplified)` entries
 - splitting entries by HSK level into partition buckets
 
-If `hsk-wordlist.json` is missing, generation continues without HSK annotations unless a legacy file is provided via `--legacy`.
+If `hsk-wordlist.json` is missing, generation continues without HSK annotations.
 
 ### Update HSK wordlist
 
@@ -68,7 +68,6 @@ The generated extraction includes a quality report that summarizes:
 - parse coverage and failure counts
 - level bucket distribution
 - deduplication behavior
-- diff statistics versus `--legacy <path>` when available
 
 Pass `--report <path>` only if you need a JSON report artifact.
 
