@@ -11,6 +11,16 @@ interface DICT_entry {
   d: Array<string>;
 }
 
+function normalizeHskWord(word: string) {
+  return word
+    .replace(/（[^）]*）/g, '')
+    .replace(/\([^)]*\)/g, '')
+    .replace(/（[^）]*$/g, '')
+    .replace(/）/g, '')
+    .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, '')
+    .trim();
+}
+
 class DICT {
   data: Promise<Array<DICT_entry> | undefined>;
 
@@ -70,10 +80,10 @@ class DICT {
         if (/\d/.test(line[0])) {
           const matches = line.match(/\d+ (.*)/)?.slice(1);
           const words = matches!
-          .flatMap((match: string) => match.split('｜'))
-          .flatMap((match: string) => match.split('('))
-          .flatMap((match: string) => match.split('、'))
-          .map((word) => word.replace(')', '').trim());
+            .flatMap((match: string) => match.split('｜'))
+            .flatMap((match: string) => match.split('、'))
+            .map((word) => normalizeHskWord(word))
+            .filter((word) => word.length > 0);
           for (const match of words) {
             hskMap.set(match, level);
           }

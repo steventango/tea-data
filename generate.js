@@ -1,6 +1,15 @@
 import { promises as fs } from "fs";
 import { performance } from 'perf_hooks';
 import unicode_pinyin from './pinyin.js';
+function normalizeHskWord(word) {
+    return word
+        .replace(/（[^）]*）/g, '')
+        .replace(/\([^)]*\)/g, '')
+        .replace(/（[^）]*$/g, '')
+        .replace(/）/g, '')
+        .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, '')
+        .trim();
+}
 class DICT {
     constructor() {
         this.data = this.load();
@@ -44,9 +53,9 @@ class DICT {
                     const matches = line.match(/\d+ (.*)/)?.slice(1);
                     const words = matches
                         .flatMap((match) => match.split('｜'))
-                        .flatMap((match) => match.split('('))
                         .flatMap((match) => match.split('、'))
-                        .map((word) => word.replace(')', '').trim());
+                        .map((word) => normalizeHskWord(word))
+                        .filter((word) => word.length > 0);
                     for (const match of words) {
                         hskMap.set(match, level);
                     }
