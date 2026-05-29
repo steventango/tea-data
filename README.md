@@ -43,13 +43,19 @@ If `hsk-wordlist.json` is missing, generation continues without HSK annotations 
 
 ### Update HSK wordlist
 
-Download the official PDF locally first:
+Download the official PDF locally first (saved as `hsk-wordlist.pdf` by default):
 
 ```bash
-npm run download:hsk-pdf -- --out /path/to/HSK30-2022.pdf
+npm run download:hsk-pdf
 ```
 
-Then build the extracted JSON:
+Then build the extracted JSON (using `hsk-wordlist.pdf` by default):
+
+```bash
+npm run update:hsk-wordlist -- --out hsk-wordlist.json
+```
+
+Or pass an explicit PDF path:
 
 ```bash
 npm run update:hsk-wordlist -- --pdf <path-to-pdf> --out hsk-wordlist.json

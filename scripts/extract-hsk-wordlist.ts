@@ -52,7 +52,7 @@ interface QualityReport {
     pdfPath?: string;
     textPath?: string;
     layout: boolean;
-    legacyWordlistPath: string;
+    legacyWordlistPath?: string;
   };
   outPath: string;
   parseDiagnostics: ParseDiagnostics;
@@ -67,7 +67,7 @@ interface CliArgs {
   textPath?: string;
   outPath: string;
   layout: boolean;
-  legacyWordlistPath: string;
+  legacyWordlistPath?: string;
   reportPath?: string;
   strict: boolean;
 }
@@ -85,8 +85,8 @@ const BUCKET_NAMES: Record<number, string> = {
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
     outPath: 'hsk-wordlist.json',
+    pdfPath: 'hsk-wordlist.pdf',
     layout: false,
-    legacyWordlistPath: 'wordlist.txt',
     strict: false,
   };
 
@@ -157,10 +157,6 @@ function parseArgs(argv: string[]): CliArgs {
     }
   }
 
-  if (!args.pdfPath && !args.textPath) {
-    usage();
-  }
-
   if (args.pdfPath && args.textPath) {
     throw new Error('--pdf and --text cannot be used together');
   }
@@ -174,11 +170,11 @@ function usage() {
   node extract-hsk-wordlist.js --text <path-to-text> [--out path]
 
   Options:
-  --pdf <path>    Input HSK syllabus PDF
+  --pdf <path>    Input HSK syllabus PDF (default: hsk-wordlist.pdf)
   --text <path>   Input extracted PDF text (skip pdftotext)
   --out <path>    Output JSON file (default: hsk-wordlist.json)
   --report <path> Write quality report JSON
-  --legacy <path> Legacy wordlist for diff checks (default: wordlist.txt)
+  --legacy <path> Legacy wordlist for diff checks
   --layout        Use pdftotext -layout mode (fallback is -raw)
   --strict        Fail on low-quality parses
   --help          Show this message`);
