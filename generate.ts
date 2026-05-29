@@ -131,9 +131,9 @@ class DICT {
 
       const hskMap = hskWordlistJson
         ? parseHskJson(hskWordlistJson)
-        : parseLegacyWordlist(
-          await fs.readFile('wordlist.txt', 'utf8')
-        );
+        : await fs.readFile('wordlist.txt', 'utf8')
+          .then(parseLegacyWordlist)
+          .catch(() => new Map<string, number>());
 
       data = data.map((entry) => {
         if (entry.j.length === 0) {

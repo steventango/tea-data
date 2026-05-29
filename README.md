@@ -8,7 +8,6 @@
 - `cccedict-canto-readings-150923.txt` - Cantonese readings table
 - `cccanto-webdist.txt` - Additional Cantonese web dictionary entries
 - `hsk-wordlist.json` - HSK wordlist and level annotations (generated from PDF extraction)
-- `wordlist.txt` - legacy fallback source
 - `partitions.json` - generated artifact file (JSON dictionary partitions)
 - `generate.ts` / `generate.js` - dictionary loading and partition generation
 - `scripts/update-cedict-partitions.ts` - script to refresh CC-CEDICT source
@@ -40,7 +39,7 @@ This compiles TypeScript and writes the generated partition file (`partitions.js
 - merging duplicate `(traditional, simplified)` entries
 - splitting entries by HSK level into partition buckets
 
-If `hsk-wordlist.json` is missing, generation falls back to `wordlist.txt`.
+If `hsk-wordlist.json` is missing, generation continues without HSK annotations unless a legacy file is provided via `--legacy`.
 
 ### Update HSK wordlist
 
@@ -63,7 +62,7 @@ The generated extraction includes a quality report that summarizes:
 - parse coverage and failure counts
 - level bucket distribution
 - deduplication behavior
-- diff statistics versus `wordlist.txt` (or `--legacy <path>`)
+- diff statistics versus `--legacy <path>` when available
 
 Pass `--report <path>` only if you need a JSON report artifact.
 
