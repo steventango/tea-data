@@ -2,7 +2,6 @@ import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import https from 'https';
 import path from 'path';
-import { spawnSync } from 'child_process';
 import { createGunzip } from 'zlib';
 import { IncomingHttpHeaders } from 'http';
 
@@ -10,7 +9,6 @@ const CEDICT_URL = 'https://www.mdbg.net/chinese/export/cedict/cedict_1_0_ts_utf
 const CEDICT_ENTRY_PATTERN = new RegExp(String.raw`([^ ]*?) ([^ ]*?) \[(.*?)\](?: \{(.*?)\})*(?: \/(.*)\/)*`);
 
 interface UpdateOptions {
-  skipGenerate: boolean;
   force: boolean;
   dryRun: boolean;
   workdir: string;
@@ -32,7 +30,6 @@ function hashBuffer(data: Buffer | string) {
 
 function parseArgs(argv: string[]): UpdateOptions {
   const options: UpdateOptions = {
-    skipGenerate: false,
     force: false,
     dryRun: false,
     workdir: process.cwd(),
@@ -40,10 +37,6 @@ function parseArgs(argv: string[]): UpdateOptions {
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--skip-generate') {
-      options.skipGenerate = true;
-      continue;
-    }
     if (arg === '--force') {
       options.force = true;
       continue;
@@ -181,34 +174,9 @@ async function writeAtomic(targetPath: string, contents: string) {
   await fs.rename(tempPath, targetPath);
 }
 
-async function summarizePartitions(partitionsPath: string) {
-  const partitions = JSON.parse(await fs.readFile(partitionsPath, 'utf8')) as Record<string, unknown[]>;
-  const bucketKeys = Object.keys(partitions);
-  const buckets = bucketKeys.length;
-  const entries = bucketKeys.reduce((total, key) => {
-    const bucket = partitions[key];
-    return total + (Array.isArray(bucket) ? bucket.length : 0);
-  }, 0);
-  return { buckets, entries };
-}
-
-function runGenerate(workdir: string) {
-  const result = spawnSync(process.execPath, ['generate.js'], {
-    cwd: workdir,
-    stdio: 'inherit',
-    encoding: 'utf8',
-  });
-
-  if (result.status !== 0) {
-    const message = result.error ? result.error.message : 'generate.js returned non-zero';
-    throw new Error(message);
-  }
-}
-
 async function run() {
-  const { skipGenerate, force, dryRun, workdir } = parseArgs(process.argv.slice(2));
+  const { force, dryRun, workdir } = parseArgs(process.argv.slice(2));
   const cedictPath = path.join(workdir, 'cedict_ts.u8');
-  const partitionsPath = path.join(workdir, 'partitions.json');
 
   const result = await fetchCedictArchive(CEDICT_URL);
   const upstreamBytes = await decompressGzip(result.gzipped);
@@ -235,16 +203,6 @@ async function run() {
 
   await writeAtomic(cedictPath, upstreamText);
   console.log('update decision: wrote cedict_ts.u8');
-
-  if (skipGenerate) {
-    console.log('update decision: skipped partition generation (--skip-generate)');
-    return;
-  }
-
-  runGenerate(workdir);
-  const summary = await summarizePartitions(partitionsPath);
-  console.log(`partitions output count (buckets): ${summary.buckets}`);
-  console.log(`partitions output count (entries): ${summary.entries}`);
 }
 
 run().catch((error) => {

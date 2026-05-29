@@ -12,8 +12,7 @@
   },
   "scripts": {
     "start": "tsc && node generate.js",
-    "update:cedict": "tsc && node scripts/update-cedict-partitions.js",
-    "update:cedict-and-generate": "npm run update:cedict"
+    "update:cedict": "tsc && node scripts/update-cedict-partitions.js"
   },
   "type": "module",
   "repository": {
