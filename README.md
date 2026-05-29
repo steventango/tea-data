@@ -38,8 +38,26 @@ This compiles TypeScript and writes the generated partition file (`partitions.js
 - augmenting missing Jyutping data from Cantonese sources when possible
 - merging duplicate `(traditional, simplified)` entries
 - splitting entries by HSK level into partition buckets
+- optionally adding topic partitions when `--topics` is provided
 
 If `hsk-wordlist.json` is missing, generation continues without HSK annotations.
+
+Options:
+
+- `node generate.js [--out partitions.json] [--topics path/to/topics.json]`
+  - `--out` writes to a custom file path.
+  - `--topics` enables topic partitions in addition to HSK buckets.
+
+`--topics` accepts either:
+
+- an object map, e.g. `{ "finance": ["银行", "存款"], "food": ["米饭", "面条"] }`
+- `{ "topics": {...} }`
+- an array: `[{"topic":"finance","words":["银行","存款"]}, {"topic":"food","words":["米饭","面条"]}]`
+
+When topics are provided, `partitions.json` includes:
+
+- `"_topics"`: topic -> entries
+- `"_hskTopics"`: HSK bucket -> topic -> entries
 
 ### Update HSK wordlist
 
